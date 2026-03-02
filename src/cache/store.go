@@ -3,6 +3,7 @@ package cache
 import (
 	"encoding/gob"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -101,6 +102,15 @@ func (s Store) close() {
 
 	store := s.get()
 	if store == nil || !store.persist || !store.dirty {
+		// Touch session files to update mtime so the clear logic doesn't remove
+		// files belonging to active sessions that haven't been written recently.
+		if s == Session && store != nil && store.filePath != "" {
+			now := time.Now()
+			if err := os.Chtimes(store.filePath, now, now); err != nil {
+				log.Error(err)
+			}
+		}
+
 		log.Debugf("(%s) not persisting", string(s))
 		return
 	}
